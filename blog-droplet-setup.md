@@ -12,7 +12,12 @@ No exposed control plane.
 
 Just you → Telegram → your Droplet → your code.
 
-If that’s what you’re after, here’s how to set it up on a DigitalOcean Droplet.
+<table><tr>
+<td><img width="300" alt="Telegram bot conversation" src="https://github.com/user-attachments/assets/ca2c91d9-473b-44c5-8996-ff8bf04237c1" /></td>
+<td><img width="300" alt="Telegram bot conversation" src="https://github.com/user-attachments/assets/8b8ac8e9-5dd4-4dc9-b032-3527c9e31a4e" /></td>
+</tr></table>
+
+If that's what you're after, here's how to set it up on a DigitalOcean Droplet.
 
 ------
 
@@ -334,10 +339,6 @@ That’s it.
 Now you can send messages like:
 
 > Let's remove the about link from the header nav on the rootein GitHub repo
-
-<img width="603" alt="Telegram bot conversation" src="https://github.com/user-attachments/assets/8b8ac8e9-5dd4-4dc9-b032-3527c9e31a4e" />
-
-<img width="603" alt="Telegram bot conversation" src="https://github.com/user-attachments/assets/ca2c91d9-473b-44c5-8996-ff8bf04237c1" />
 
 Claude Code runs locally on your Droplet, reads your repo, makes changes, and responds in Telegram.
 
