@@ -38,4 +38,4 @@ Before running the script, have these ready:
 
 ## Detailed Walkthrough
 
-See [docs/blog-droplet-setup.md](docs/blog-droplet-setup.md) for a step-by-step explanation of every command the script runs.
+See [blog-droplet-setup.md](blog-droplet-setup.md) for a step-by-step explanation of every command the script runs.
