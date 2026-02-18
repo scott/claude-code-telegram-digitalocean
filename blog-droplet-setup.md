@@ -333,9 +333,7 @@ That’s it.
 
 Now you can send messages like:
 
-> Fix the database lock issue
-> Add parks to the map by default
-> Update that broken route
+> Let's remove the about link from the header nav on the rootein GitHub repo
 
 <img width="603" alt="Telegram bot conversation" src="https://github.com/user-attachments/assets/8b8ac8e9-5dd4-4dc9-b032-3527c9e31a4e" />
 
