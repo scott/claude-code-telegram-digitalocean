@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 #
-# setup-droplet.sh — Automated setup for Claude Code Telegram bot on a fresh DigitalOcean droplet
+# setup-droplet.sh — Automated setup for OpenCode Telegram mirror on an OpenCode 1-Click Droplet
 #
 # Usage: bash setup-droplet.sh
 #
-# This script automates the steps documented in docs/droplet-setup-explained.md.
-# It will prompt you interactively for secrets and pause for manual steps (e.g., adding SSH key to GitHub).
+# Prerequisites: Create an OpenCode Droplet from the DigitalOcean Marketplace:
+#   https://marketplace.digitalocean.com/apps/opencode
+#
+# The 1-Click image comes with OpenCode and Node.js pre-installed.
+# This script configures everything else: GitHub access, DigitalOcean Gradient
+# as the LLM provider, and the Telegram mirror bot.
 #
 
 set -euo pipefail
@@ -20,22 +24,21 @@ warn()  { echo -e "\033[1;33m  !\033[0m $*"; }
 pause() { echo; read -rp "  Press Enter to continue..." ; }
 
 # ---------------------------------------------------------------------------
-# Section 1: System packages
+# Section 1: Additional system packages
 # ---------------------------------------------------------------------------
 
-info "Section 1: Installing system packages"
+info "Section 1: Installing additional system packages"
 
 apt update
-apt install -y zsh build-essential procps curl file git gh
-apt install -y curl python3-venv python3-pip
+apt install -y zsh gh
 
 ok "System packages installed"
 
 # ---------------------------------------------------------------------------
-# Section 1b: Oh My Zsh
+# Section 2: Oh My Zsh
 # ---------------------------------------------------------------------------
 
-info "Section 1b: Installing Oh My Zsh and setting Zsh as default shell"
+info "Section 2: Installing Oh My Zsh and setting Zsh as default shell"
 
 if [ -d "$HOME/.oh-my-zsh" ]; then
     warn "Oh My Zsh is already installed — skipping"
@@ -47,10 +50,10 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Section 2: SSH key for GitHub
+# Section 3: SSH key for GitHub
 # ---------------------------------------------------------------------------
 
-info "Section 2: Setting up SSH key for GitHub"
+info "Section 3: Setting up SSH key for GitHub"
 
 SSH_KEY_PATH="$HOME/.ssh/github_deploy_key"
 
@@ -98,10 +101,10 @@ chmod 644 "$HOME/.ssh/known_hosts"
 ok "GitHub SSH setup complete"
 
 # ---------------------------------------------------------------------------
-# Section 3: GitHub CLI auth
+# Section 4: GitHub CLI auth
 # ---------------------------------------------------------------------------
 
-info "Section 3: Authenticating GitHub CLI"
+info "Section 4: Authenticating GitHub CLI"
 
 if gh auth status &>/dev/null; then
     warn "GitHub CLI is already authenticated — skipping"
@@ -118,84 +121,96 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Section 4: Poetry
+# Section 5: DigitalOcean Gradient
 # ---------------------------------------------------------------------------
 
-info "Section 4: Installing Poetry"
-
-export PATH="$HOME/.local/bin:$PATH"
-
-if command -v poetry &>/dev/null; then
-    warn "Poetry is already installed ($(poetry --version)) — skipping"
-else
-    curl -sSL https://install.python-poetry.org | python3 -
-
-    # Add to zshrc if not already there
-    if ! grep -q '.local/bin' "$HOME/.zshrc" 2>/dev/null; then
-        echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.zshrc"
-    fi
-
-    ok "Poetry installed ($(poetry --version))"
-fi
-
-# ---------------------------------------------------------------------------
-# Section 5: Claude Code
-# ---------------------------------------------------------------------------
-
-info "Section 5: Installing Claude Code"
-
-if command -v claude &>/dev/null; then
-    warn "Claude Code is already installed — skipping"
-else
-    curl -fsSL https://claude.ai/install.sh | bash
-    ok "Claude Code installed"
-fi
+info "Section 5: Configuring DigitalOcean Gradient"
 
 echo
-read -rsp "  Enter your Anthropic API key: " ANTHROPIC_KEY
+echo "  You need a DigitalOcean Gradient model access key."
+echo "  Create one at: https://cloud.digitalocean.com/gen-ai/model-access-keys"
+echo
+read -rsp "  Enter your Gradient model access key: " GRADIENT_KEY
 echo
 
 # Add to zshrc if not already there
-if ! grep -q 'ANTHROPIC_API_KEY' "$HOME/.zshrc" 2>/dev/null; then
-    echo "export ANTHROPIC_API_KEY=\"$ANTHROPIC_KEY\"" >> "$HOME/.zshrc"
-    ok "ANTHROPIC_API_KEY added to ~/.zshrc"
+if ! grep -q 'MODEL_ACCESS_KEY' "$HOME/.zshrc" 2>/dev/null; then
+    echo "export MODEL_ACCESS_KEY=\"$GRADIENT_KEY\"" >> "$HOME/.zshrc"
+    ok "MODEL_ACCESS_KEY added to ~/.zshrc"
 else
-    warn "ANTHROPIC_API_KEY already in ~/.zshrc — skipping (update manually if needed)"
+    warn "MODEL_ACCESS_KEY already in ~/.zshrc — skipping (update manually if needed)"
 fi
 
-export ANTHROPIC_API_KEY="$ANTHROPIC_KEY"
+export MODEL_ACCESS_KEY="$GRADIENT_KEY"
+
+# Write OpenCode global config
+mkdir -p "$HOME/.config/opencode"
+
+cat > "$HOME/.config/opencode/opencode.json" <<'EOF'
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "do-gradient": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "DigitalOcean Gradient",
+      "options": {
+        "baseURL": "https://inference.do-ai.run/v1"
+      },
+      "models": {
+        "anthropic-claude-sonnet-4.5": {
+          "name": "Claude Sonnet 4.5 (via Gradient)"
+        }
+      }
+    }
+  },
+  "model": "do-gradient/anthropic-claude-sonnet-4.5"
+}
+EOF
+
+ok "OpenCode config written to ~/.config/opencode/opencode.json"
+
+# Write OpenCode auth config
+mkdir -p "$HOME/.local/share/opencode"
+
+cat > "$HOME/.local/share/opencode/auth.json" <<EOF
+{
+  "do-gradient": {
+    "type": "api",
+    "key": "$GRADIENT_KEY"
+  }
+}
+EOF
+
+chmod 600 "$HOME/.local/share/opencode/auth.json"
+
+ok "OpenCode auth config written to ~/.local/share/opencode/auth.json"
 
 # ---------------------------------------------------------------------------
-# Section 6: Clone and setup bot
+# Section 6: Clone and setup Telegram mirror
 # ---------------------------------------------------------------------------
 
-info "Section 6: Cloning and setting up the bot"
+info "Section 6: Cloning and setting up the Telegram mirror"
 
-REPO_DIR="$HOME/claude-code-telegram"
+REPO_DIR="$HOME/opencode-telegram-mirror"
 
 if [ -d "$REPO_DIR" ]; then
     warn "Repo already exists at $REPO_DIR — skipping clone"
 else
-    git clone git@github.com:RichardAtCT/claude-code-telegram.git "$REPO_DIR"
+    git clone git@github.com:ajoslin/opencode-telegram-mirror.git "$REPO_DIR"
     ok "Repo cloned"
 fi
 
 cd "$REPO_DIR"
 
-info "Running make dev (installing Python dependencies)"
-make dev
+info "Installing dependencies"
+npm install
 ok "Dependencies installed"
 
-# Apply tool_name -> name bug fix
-info "Applying tool_name bug fix"
-sed -i 's/getattr(block, "tool_name", "unknown")/getattr(block, "name", "unknown")/g' "$REPO_DIR/src/claude/sdk_integration.py"
-ok "Bug fix applied to sdk_integration.py"
-
 # ---------------------------------------------------------------------------
-# Section 7: Configure .env
+# Section 7: Configure environment
 # ---------------------------------------------------------------------------
 
-info "Section 7: Configuring .env"
+info "Section 7: Configuring environment"
 
 mkdir -p /root/projects
 
@@ -205,18 +220,13 @@ echo "  If you haven't created one yet, open Telegram, message @BotFather,"
 echo "  send /newbot, and follow the prompts."
 echo
 read -rp  "  Telegram bot token: " TG_TOKEN
-read -rp  "  Telegram bot username (without @): " TG_USERNAME
 echo
-echo "  Enter your Telegram user ID(s). To find yours, message @userinfobot on Telegram."
-echo "  For multiple users, separate with commas (e.g., 123456,789012)."
-read -rp  "  Allowed user IDs: " ALLOWED_USERS
+echo "  Enter your Telegram chat ID. To find yours, message @userinfobot on Telegram."
+read -rp  "  Telegram chat ID: " TG_CHAT_ID
 
 cat > "$REPO_DIR/.env" <<EOF
 TELEGRAM_BOT_TOKEN=$TG_TOKEN
-TELEGRAM_BOT_USERNAME=$TG_USERNAME
-APPROVED_DIRECTORY=/root/projects
-ALLOWED_USERS=$ALLOWED_USERS
-USE_SDK=true
+TELEGRAM_CHAT_ID=$TG_CHAT_ID
 EOF
 
 ok ".env file written"
@@ -247,20 +257,18 @@ info "Setup complete!"
 
 echo
 echo "  What was set up:"
-echo "    - System packages (zsh, git, gh, python3, build tools)"
 echo "    - Oh My Zsh (default shell)"
 echo "    - SSH key for GitHub"
 echo "    - GitHub CLI authenticated"
-echo "    - Poetry (Python package manager)"
-echo "    - Claude Code CLI"
-echo "    - Bot repo cloned to $REPO_DIR"
-echo "    - Bot dependencies installed"
-echo "    - tool_name bug fix applied"
+echo "    - OpenCode configured with DigitalOcean Gradient"
+echo "    - Telegram mirror cloned to $REPO_DIR"
+echo "    - Dependencies installed"
 echo "    - .env configured"
+echo
+echo "  (OpenCode and Node.js were pre-installed by the 1-Click image)"
 echo
 echo "  To run the bot:"
 echo "    cd $REPO_DIR"
 echo "    source ~/.zshrc"
-echo "    make run-debug    # first run (shows logs)"
-echo "    make run           # production mode"
+echo "    npx opencode-telegram-mirror /root/projects"
 echo

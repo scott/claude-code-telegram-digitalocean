@@ -1,8 +1,8 @@
-# Claude Code Telegram on DigitalOcean
+# OpenCode Telegram on DigitalOcean
 
-Automated setup script for running [Claude Code Telegram](https://github.com/RichardAtCT/claude-code-telegram) on a DigitalOcean Droplet.
+Automated setup script for running [OpenCode Telegram Mirror](https://github.com/ajoslin/opencode-telegram-mirror) on a DigitalOcean Droplet, powered by [DigitalOcean Gradient](https://docs.digitalocean.com/products/gradient-ai-platform/).
 
-Send messages to Claude Code from Telegram. It reads your repo, makes changes, and responds — all running on your Droplet.
+Send messages to OpenCode from Telegram. It reads your repo, makes changes, and responds — all running on your Droplet.
 
 <table><tr>
 <td><img width="300" alt="Telegram bot conversation" src="https://github.com/user-attachments/assets/ca2c91d9-473b-44c5-8996-ff8bf04237c1" /></td>
@@ -11,7 +11,11 @@ Send messages to Claude Code from Telegram. It reads your repo, makes changes, a
 
 ## Quick Start
 
-SSH into a fresh Ubuntu Droplet and run:
+1. **Create an OpenCode Droplet** from the [DigitalOcean Marketplace](https://marketplace.digitalocean.com/apps/opencode) — this gives you OpenCode and Node.js pre-installed.
+
+   [![Create OpenCode Droplet](https://img.shields.io/badge/DigitalOcean-Create_OpenCode_Droplet-0080FF?style=for-the-badge&logo=digitalocean)](https://cloud.digitalocean.com/droplets/new?onboarding_origin=marketplace&appId=217594412&image=opencode)
+
+2. **SSH in** and run the setup script:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ajot/claude-code-telegram-digitalocean/main/setup-droplet.sh -o setup-droplet.sh
@@ -22,24 +26,24 @@ The script will prompt you for everything it needs along the way.
 
 ## What It Sets Up
 
-- System packages (zsh, git, gh, python3, build tools)
+The 1-Click image provides OpenCode and Node.js. The setup script configures everything else:
+
 - Oh My Zsh (default shell)
 - SSH deploy key for GitHub
 - GitHub CLI authentication
-- Poetry (Python package manager)
-- Claude Code CLI
-- Bot repo cloned and dependencies installed
-- `.env` configured with your Telegram bot token and settings
+- OpenCode configured with DigitalOcean Gradient as the LLM provider
+- Telegram mirror repo cloned and dependencies installed
+- `.env` configured with your Telegram bot token and chat ID
 
 ## Prerequisites
 
 Before running the script, have these ready:
 
-- A [DigitalOcean Droplet](https://docs.digitalocean.com/products/droplets/how-to/create/) running Ubuntu
+- An [OpenCode Droplet](https://marketplace.digitalocean.com/apps/opencode) (1-Click App from the DigitalOcean Marketplace)
 - A [GitHub personal access token](https://github.com/settings/tokens) (scopes: `repo`, `read:org`)
-- An [Anthropic API key](https://console.anthropic.com/)
+- A [DigitalOcean Gradient model access key](https://cloud.digitalocean.com/gen-ai/model-access-keys)
 - A Telegram bot token from [@BotFather](https://t.me/BotFather)
-- Your Telegram user ID from [@userinfobot](https://t.me/userinfobot)
+- Your Telegram chat ID from [@userinfobot](https://t.me/userinfobot)
 
 ## Detailed Walkthrough
 

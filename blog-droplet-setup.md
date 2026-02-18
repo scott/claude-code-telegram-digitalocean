@@ -1,10 +1,10 @@
-# Edit Your Production Code from Telegram (Without Running OpenClaw)
+# Edit Your Production Code from Telegram with OpenCode and DigitalOcean Gradient
 
-If you’ve been exploring OpenClaw but feel like it’s a bit much for what you actually need — and all you really want is the ability to update or fix your code from Telegram — there’s a much simpler option.
+If you've been exploring OpenClaw but feel like it's a bit much for what you actually need — and all you really want is the ability to update or fix your code from Telegram — there's a much simpler option.
 
-[Levelsio](https://x.com/levelsio/status/2023960543959101938?s=20) recently pointed to an open source project called [Claude Code Telegram](https://github.com/RichardAtCT/claude-code-telegram).
+[OpenCode](https://opencode.ai) is an open-source, terminal-first AI coding agent that supports 75+ LLM providers. Pair it with [OpenCode Telegram Mirror](https://github.com/ajoslin/opencode-telegram-mirror) and you get a clean Telegram interface to your coding agent.
 
-It does one thing well: it lets you send messages over Telegram to Claude Code running on your server.
+It does one thing well: it lets you send messages over Telegram to OpenCode running on your server.
 
 No multi-agent orchestration.
 No dashboard.
@@ -17,26 +17,26 @@ Just you → Telegram → your Droplet → your code.
 <td><img width="300" alt="Telegram bot conversation" src="https://github.com/user-attachments/assets/8b8ac8e9-5dd4-4dc9-b032-3527c9e31a4e" /></td>
 </tr></table>
 
-If that's what you're after, here's how to set it up on a DigitalOcean Droplet.
+In this guide we'll use [DigitalOcean Gradient](https://docs.digitalocean.com/products/gradient-ai-platform/) as the LLM provider — it offers an OpenAI-compatible API with access to models from Anthropic, Meta, OpenAI, and others, all billed per token with no subscriptions.
+
+If that's what you're after, here's how to set it up.
 
 ------
 
-# First: Create a DigitalOcean Droplet
+# First: Create an OpenCode Droplet
 
-If you don’t already have a server, you’ll need a basic Ubuntu Droplet.
+DigitalOcean offers an [OpenCode 1-Click App](https://marketplace.digitalocean.com/apps/opencode) on their Marketplace. It gives you an Ubuntu 24.04 Droplet with OpenCode and Node.js pre-installed — no manual installation needed.
 
-In the DigitalOcean control panel:
-
-1. Click **Create → Droplets**
-2. Choose **Ubuntu** (latest LTS version is fine)
+1. Go to the [OpenCode Marketplace page](https://marketplace.digitalocean.com/apps/opencode)
+2. Click **Create OpenCode Droplet**
 3. Pick a basic plan (the smallest size works for experimenting)
 4. Choose your region
 5. Add your SSH key (recommended)
 6. Click **Create Droplet**
 
-If you need a detailed walkthrough, DigitalOcean has a guide here:
+Or use this direct link:
 
-👉 https://docs.digitalocean.com/products/droplets/how-to/create/
+👉 https://cloud.digitalocean.com/droplets/new?onboarding_origin=marketplace&appId=217594412&image=opencode
 
 Once your Droplet is ready, SSH into it:
 
@@ -44,47 +44,88 @@ Once your Droplet is ready, SSH into it:
 ssh root@your_droplet_ip
 ```
 
-Now we’ll set it up.
+Now we'll configure it.
 
 ------
 
 # Droplet Setup
 
-## 1. Update Package Lists
+Your OpenCode Droplet already has OpenCode and Node.js installed. The steps below configure GitHub access, the LLM provider, and the Telegram mirror.
+
+## 1. Install Additional Packages
+
+The 1-Click image has most things you need. We just need to add `zsh` and the GitHub CLI:
 
 ```bash
 sudo apt update
+sudo apt install -y zsh gh
 ```
 
 ------
 
-## 2. Install Zsh
+## 2. Install Oh My Zsh
 
 ```bash
-sudo apt install zsh -y
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 ```
 
 ------
 
-## 3. Install Essential Build Tools
+## 3. Generate an SSH Deploy Key
 
 ```bash
-sudo apt install build-essential procps curl file git -y
+ssh-keygen -t ed25519 -C "do-droplet-deploy-key" -f ~/.ssh/github_deploy_key
 ```
-
-This installs compilers, process utilities, curl, file detection, and git.
 
 ------
 
-## 4. Install GitHub CLI
+## 4. Add the Public Key to GitHub
+
+Print it:
 
 ```bash
-sudo apt install gh
+cat ~/.ssh/github_deploy_key.pub
+```
+
+Add it under:
+
+GitHub → Settings → SSH and GPG keys → New SSH key
+Key type: **Authentication**
+
+------
+
+## 5. Configure SSH to Use the Key
+
+```bash
+cat >> ~/.ssh/config <<'EOF'
+Host github.com
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/github_deploy_key
+  IdentitiesOnly yes
+EOF
 ```
 
 ------
 
-## 4b. Authenticate GitHub CLI
+## 6. Lock Down SSH Config Permissions
+
+```bash
+chmod 600 ~/.ssh/config
+```
+
+------
+
+## 7. Pre-Register GitHub's Host Identity
+
+```bash
+ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+chmod 644 ~/.ssh/known_hosts
+```
+
+------
+
+## 8. Authenticate GitHub CLI
 
 ```bash
 gh auth login
@@ -116,119 +157,9 @@ gh auth status
 
 ------
 
-## 5. Install Oh My Zsh
+## 9. (Optional) Fix Terminal for Ghostty Users
 
-```bash
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-```
-
-------
-
-## 6. Install Python Dependencies
-
-```bash
-sudo apt install -y curl python3-venv python3-pip
-```
-
-------
-
-## 7. Generate an SSH Deploy Key
-
-```bash
-ssh-keygen -t ed25519 -C "do-droplet-deploy-key" -f ~/.ssh/github_deploy_key
-```
-
-------
-
-## 8. Add the Public Key to GitHub
-
-Print it:
-
-```bash
-cat ~/.ssh/github_deploy_key.pub
-```
-
-Add it under:
-
-GitHub → Settings → SSH and GPG keys → New SSH key
-Key type: **Authentication**
-
-------
-
-## 9. Configure SSH to Use the Key
-
-```bash
-cat >> ~/.ssh/config <<'EOF'
-Host github.com
-  HostName github.com
-  User git
-  IdentityFile ~/.ssh/github_deploy_key
-  IdentitiesOnly yes
-EOF
-```
-
-------
-
-## 10. Lock Down SSH Config Permissions
-
-```bash
-chmod 600 ~/.ssh/config
-```
-
-------
-
-## 11. Pre-Register GitHub’s Host Identity
-
-```bash
-ssh-keyscan -H github.com >> ~/.ssh/known_hosts
-```
-
-------
-
-## 12. Set known_hosts Permissions
-
-```bash
-chmod 644 ~/.ssh/known_hosts
-```
-
-------
-
-## 13. Install Poetry
-
-```bash
-curl -sSL https://install.python-poetry.org | python3 -
-```
-
-------
-
-## 14. Add Poetry to Your PATH
-
-```bash
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-```
-
-------
-
-## 15. Verify Poetry Installation
-
-```bash
-poetry --version
-```
-
-------
-
-## 16. Install Claude Code
-
-```bash
-curl -fsSL https://claude.ai/install.sh | bash
-```
-
-------
-
-## 16b. (Optional) Fix Terminal for Ghostty Users
-
-If you’re SSHing in with Ghostty and see terminal issues:
+If you're SSHing in with Ghostty and see terminal issues:
 
 ```bash
 echo 'export TERM=xterm-256color' >> ~/.zshrc
@@ -237,7 +168,13 @@ source ~/.zshrc
 
 ------
 
-## 17. Set Your Anthropic API Key
+## 10. Set Your DigitalOcean Gradient Model Access Key
+
+Create a model access key in the DigitalOcean control panel:
+
+👉 https://cloud.digitalocean.com/gen-ai/model-access-keys
+
+Then add it to your shell:
 
 ```bash
 nano ~/.zshrc
@@ -246,7 +183,7 @@ nano ~/.zshrc
 Add:
 
 ```bash
-export ANTHROPIC_API_KEY="sk-..."
+export MODEL_ACCESS_KEY="your-key-here"
 ```
 
 Reload:
@@ -257,35 +194,73 @@ source ~/.zshrc
 
 ------
 
-## 18. Clone Claude Code Telegram
+## 11. Configure OpenCode to Use DigitalOcean Gradient
+
+Create the OpenCode config directory and config file:
 
 ```bash
-git clone git@github.com:RichardAtCT/claude-code-telegram.git
-cd claude-code-telegram
+mkdir -p ~/.config/opencode
+cat > ~/.config/opencode/opencode.json <<'EOF'
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "do-gradient": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "DigitalOcean Gradient",
+      "options": {
+        "baseURL": "https://inference.do-ai.run/v1"
+      },
+      "models": {
+        "anthropic-claude-sonnet-4.5": {
+          "name": "Claude Sonnet 4.5 (via Gradient)"
+        }
+      }
+    }
+  },
+  "model": "do-gradient/anthropic-claude-sonnet-4.5"
+}
+EOF
+```
+
+This tells OpenCode to use DigitalOcean Gradient's serverless inference endpoint as an OpenAI-compatible provider, with `anthropic-claude-sonnet-4.5` as the default model.
+
+Next, store the API key for OpenCode:
+
+```bash
+mkdir -p ~/.local/share/opencode
+cat > ~/.local/share/opencode/auth.json <<EOF
+{
+  "do-gradient": {
+    "type": "api",
+    "key": "$MODEL_ACCESS_KEY"
+  }
+}
+EOF
+chmod 600 ~/.local/share/opencode/auth.json
+```
+
+------
+
+## 12. Clone OpenCode Telegram Mirror
+
+```bash
+git clone git@github.com:ajoslin/opencode-telegram-mirror.git
+cd opencode-telegram-mirror
 ```
 
 Use the SSH URL (`git@github.com:`), not HTTPS.
 
 ------
 
-## 19. Install Bot Dependencies
+## 13. Install Dependencies
 
 ```bash
-make dev
+npm install
 ```
-
-If you see:
-
-```
-Command not found: pre-commit
-pre-commit not configured yet
-```
-
-That’s normal and safe to ignore.
 
 ------
 
-## 20. Create a Telegram Bot
+## 14. Create a Telegram Bot
 
 In Telegram:
 
@@ -296,11 +271,10 @@ In Telegram:
 
 ------
 
-## 21. Configure the Bot
+## 15. Configure the Bot
 
 ```bash
-mkdir /root/projects
-cp .env.example .env
+mkdir -p /root/projects
 nano .env
 ```
 
@@ -308,39 +282,26 @@ Fill in:
 
 ```
 TELEGRAM_BOT_TOKEN=<your token>
-TELEGRAM_BOT_USERNAME=<your bot username>
-APPROVED_DIRECTORY=/root/projects
-ALLOWED_USERS=<your Telegram user ID>
-USE_SDK=true
+TELEGRAM_CHAT_ID=<your chat ID>
 ```
 
-To get your Telegram user ID, message **@userinfobot**.
-
-The `ALLOWED_USERS` setting is important — the bot ignores everyone else.
+To get your Telegram chat ID, message **@userinfobot**.
 
 ------
 
-## 22. Run the Bot
-
-For first run:
+## 16. Run the Bot
 
 ```bash
-make run-debug
+npx opencode-telegram-mirror /root/projects
 ```
 
-For normal mode:
-
-```bash
-make run
-```
-
-That’s it.
+That's it.
 
 Now you can send messages like:
 
 > Let's remove the about link from the header nav on the rootein GitHub repo
 
-Claude Code runs locally on your Droplet, reads your repo, makes changes, and responds in Telegram.
+OpenCode runs locally on your Droplet, reads your repo, makes changes, and responds in Telegram — powered by DigitalOcean Gradient.
 
 No heavy framework.
 No exposed agent.
